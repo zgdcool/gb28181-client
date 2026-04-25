@@ -8,10 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class FfmpegCommander implements IFfmpegCommander {
@@ -23,35 +24,39 @@ public class FfmpegCommander implements IFfmpegCommander {
 
     private static final Map<String, Process> processMap = new ConcurrentHashMap<>();
 
-    public String pushStream(String callId, String filePath, String ip, int port) {
+    public String pushStream(String callId, String filePath, String ip, int port, String payloadType, String ssrc) {
         String command = systemConfig.getFfmpegPath() + " " +
-                systemConfig.getFfmpegPushStreamCmd().replace("{filePath}", filePath).replace("{ip}", ip).replace("{port}", port + "");
+                systemConfig.getFfmpegPushStreamCmd()
+                        .replace("{filePath}", filePath)
+                        .replace("{ip}", ip)
+                        .replace("{port}", String.valueOf(port))
+                        .replace("{payloadType}", payloadType)
+                        .replace("{ssrc}", ssrc);
         logger.info("callId={},\r\n推流命令={}", callId, command);
-        Runtime runtime = Runtime.getRuntime();
         try {
             new Thread(() -> {
                 int code = 0;
                 try {
-                    Process process = runtime.exec(command);
+                    Process process = new ProcessBuilder("/bin/sh", "-lc", command)
+                            .command("/bin/sh", "-lc", "exec " + command)
+                            .redirectErrorStream(true)
+                            .start();
                     processMap.put(callId, process);
-                    InputStream errorInputStream = process.getErrorStream();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(errorInputStream));
-                    StringBuffer errorStr = new StringBuffer();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
                     String str;
                     while ((str = reader.readLine()) != null) {
-                        errorStr.append(str);
-                        logger.debug(str);
+                        logger.info("[ffmpeg] {}", str);
                     }
                     code = process.waitFor();
-                    logger.info("推流已结束,callId={}", callId);
+                    processMap.remove(callId);
+                    logger.info("推流已结束, callId={}, exitCode={}", callId, code);
                 } catch (Exception e) {
                     logger.error("ffmpeg推流异常!", e);
                 }
-                System.out.println(code);
             }).start();
             return command;
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("创建ffmpeg推流进程失败!", e);
         }
         return "";
     }
@@ -61,7 +66,7 @@ public class FfmpegCommander implements IFfmpegCommander {
         if (StringUtils.isEmpty(callId)) {
             closeAllStream();
         } else if (processMap.containsKey(callId)) {
-            processMap.get(callId).destroy();
+            stopProcess(callId, processMap.remove(callId));
         } else {
             logger.info("没有推流要关闭!");
         }
@@ -69,8 +74,26 @@ public class FfmpegCommander implements IFfmpegCommander {
 
     public void closeAllStream() {
         logger.info("关闭所有推流");
-        processMap.entrySet().stream().forEach(entry -> {
-            entry.getValue().destroy();
-        });
+        processMap.forEach(this::stopProcess);
+        processMap.clear();
+    }
+
+    private void stopProcess(String callId, Process process) {
+        if (process == null) {
+            return;
+        }
+        process.destroy();
+        try {
+            if (!process.waitFor(2, TimeUnit.SECONDS) && process.isAlive()) {
+                logger.warn("推流进程未正常退出，强制关闭, callId={}", callId);
+                process.destroyForcibly();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warn("等待推流进程退出被中断, callId={}", callId, e);
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
     }
 }

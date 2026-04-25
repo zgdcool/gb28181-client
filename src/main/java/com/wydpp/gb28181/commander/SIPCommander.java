@@ -65,7 +65,9 @@ public class SIPCommander implements ISIPCommander {
             }
         } else {
             try {
-                callIdHeader.setCallId(callId);
+                if (callId != null && !callId.isEmpty()) {
+                    callIdHeader.setCallId(callId);
+                }
                 request = headerProviderPlatformProvider.createRegisterRequest(sipPlatform, sipDevice, "FromRegister" + tm, null, www, callIdHeader);
             } catch (Exception e) {
                 logger.error("createRegisterRequest error!", e);
@@ -115,7 +117,9 @@ public class SIPCommander implements ISIPCommander {
         Request request = null;
         CallIdHeader callIdHeader = udpSipProvider.getNewCallId();
         try {
-            callIdHeader.setCallId(callId);
+            if (callId != null && !callId.isEmpty()) {
+                callIdHeader.setCallId(callId);
+            }
             request = headerProviderPlatformProvider.createUnRegisterRequest(sipPlatform, sipDevice, "FromRegister" + tm, null, www, callIdHeader);
         } catch (Exception e) {
             logger.error("createRegisterRequest error!", e);
@@ -212,6 +216,32 @@ public class SIPCommander implements ISIPCommander {
             udpSipProvider.sendRequest(request);
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public boolean deviceStatusResponse(SipPlatform sipPlatform, SipDevice sipDevice, String sn, String fromTag) {
+        try {
+            StringBuilder deviceStatusXml = new StringBuilder(256);
+            deviceStatusXml.append("<?xml version=\"1.0\"?>\r\n");
+            deviceStatusXml.append("<Response>\r\n");
+            deviceStatusXml.append("<CmdType>DeviceStatus</CmdType>\r\n");
+            deviceStatusXml.append("<SN>").append(sn).append("</SN>\r\n");
+            deviceStatusXml.append("<DeviceID>").append(sipDevice.getDeviceId()).append("</DeviceID>\r\n");
+            deviceStatusXml.append("<Result>OK</Result>\r\n");
+            deviceStatusXml.append("<Online>ONLINE</Online>\r\n");
+            deviceStatusXml.append("<Status>OK</Status>\r\n");
+            deviceStatusXml.append("</Response>\r\n");
+
+            CallIdHeader callIdHeader = udpSipProvider.getNewCallId();
+            Request request = headerProviderPlatformProvider.createMessageRequest(
+                    sipPlatform, sipDevice, deviceStatusXml.toString(), fromTag, callIdHeader);
+            logger.info("要发送的deviceStatus消息:\n{}", request);
+            udpSipProvider.sendRequest(request);
+        } catch (Exception e) {
+            logger.error("发送deviceStatus消息失败", e);
             return false;
         }
         return true;

@@ -125,12 +125,19 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
             //  获取支持的格式
             Vector mediaDescriptions = sdp.getMediaDescriptions(true);
             int port = -1;
+            String payloadType = null;
             for (int i = 0; i < mediaDescriptions.size(); i++) {
                 MediaDescription mediaDescription = (MediaDescription) mediaDescriptions.get(i);
                 Media media = mediaDescription.getMedia();
                 Vector mediaFormats = media.getMediaFormats(false);
+                if (mediaFormats.contains("126")) {
+                    port = media.getMediaPort();
+                    payloadType = "126";
+                    break;
+                }
                 if (mediaFormats.contains("98")) {
                     port = media.getMediaPort();
+                    payloadType = "98";
                     break;
                 }
             }
@@ -156,8 +163,10 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
                 }
             }
             String username = sdp.getOrigin().getUsername();
-            String addressStr = sdp.getOrigin().getAddress();
-            logger.info("设备{}请求语音流，地址：{}:{}，ssrc：{}", username, addressStr, port, ssrc);
+            String addressStr = sdp.getConnection() != null ? sdp.getConnection().getAddress() : sdp.getOrigin().getAddress();
+            logger.info("设备{}请求视频流，地址：{}:{}，ssrc：{}，payloadType：{}", username, addressStr, port, ssrc, payloadType);
+            final String finalPayloadType = payloadType;
+            final String finalSsrc = ssrc;
             SendRtpItem sendRtpItem = new SendRtpItem();
             sendRtpItem.setIp(addressStr);
             sendRtpItem.setPort(port);
@@ -165,7 +174,7 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
             sipSubscribe.addOkSubscribe(callIdHeader.getCallId(), eventResult -> {
                 logger.info("开始推流");
                 ffmpegCommander.closeAllStream();
-                ffmpegCommander.pushStream(eventResult.callId, filePath.get(), sendRtpItem.getIp(), sendRtpItem.getPort());
+                ffmpegCommander.pushStream(eventResult.callId, filePath.get(), sendRtpItem.getIp(), sendRtpItem.getPort(), finalPayloadType, finalSsrc);
             });
             StringBuffer content = new StringBuffer(200);
             content.append("v=0\r\n");
@@ -173,9 +182,9 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
             content.append("s=" + sipDevice.getName() + "\r\n");
             content.append("c=IN IP4 " + addressStr + "\r\n");
             content.append("t=0 0\r\n");
-            content.append("m=video " + sendRtpItem.getPort() + " RTP/AVP 96\r\n");
+            content.append("m=video " + sendRtpItem.getPort() + " RTP/AVP " + finalPayloadType + "\r\n");
             content.append("a=sendonly\r\n");
-            content.append("a=rtpmap:96 PS/90000\r\n");
+            content.append("a=rtpmap:" + finalPayloadType + " H264/90000\r\n");
             content.append("y=" + ssrc + "\r\n");
             content.append("f=\r\n");
             responseAck(evt, content.toString());

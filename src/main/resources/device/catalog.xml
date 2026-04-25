@@ -3,7 +3,7 @@
     <CmdType>Catalog</CmdType>
     <SN>${SN}</SN>
     <DeviceID>${DEVICE_ID}</DeviceID>
-    <SumNum>100</SumNum>
+    <SumNum>1</SumNum>
     <DeviceList>
         <Item>
             <!-- 设备/区域/系统编码(必选)-->
@@ -47,7 +47,7 @@
             <!-- 设备口令(可选)-->
             <Password>Password1</Password>
             <!-- 设备状态(必选)-->
-            <Status>Status1</Status>
+            <Status>ON</Status>
             <!-- 经度(可选)-->
             <Longitude>171.4</Longitude>
             <!-- 纬度(可选)-->

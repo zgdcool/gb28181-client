@@ -63,6 +63,7 @@ public class RegisterResponseProcessor extends SIPResponseProcessorAbstract {
         if (statusCode == 401) {
             //携带验证信息
             WWWAuthenticateHeader authorizationHeader = (WWWAuthenticateHeader) response.getHeader(WWWAuthenticateHeader.NAME);
+            sipPlatform.setRegisterWWWAuthenticateHeader(authorizationHeader);
             if (sipDevice.isNeedRegister()) {
                 logger.info("向平台:{} 发送带认证信息的注册消息!", platformInfo);
                 sipCommander.register(sipPlatform, sipDevice, callId, authorizationHeader, null);

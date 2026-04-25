@@ -29,27 +29,39 @@ public class GB28181ClientController {
     @Autowired
     private IFfmpegCommander ffmpegCommander;
 
-    @PutMapping(path = "/register")
+    @GetMapping(path = "/register")
     public DeferredResult<String> register() {
-        DeferredResult<String> result = new DeferredResult<>(1000 * 5L);
+        DeferredResult<String> result = new DeferredResult<>(1000 * 60L);
         result.onTimeout(() -> {
             result.setResult("注册超时!");
         });
         sipDevice.setNeedRegister(true);
-        boolean sendResult = sipCommander.register(sipPlatform, sipDevice, eventResult -> {
-            long time = System.currentTimeMillis();
-            sipDevice.setRegisterTime(time);
-            sipDevice.setKeepaliveTime(time);
-            sipDevice.setOnline(true);
-            result.setResult("注册成功!");
-        });
+        boolean sendResult;
+        if (sipPlatform.getRegisterWWWAuthenticateHeader() != null) {
+            logger.info("使用缓存的鉴权挑战主动发送带 Authorization 的注册消息");
+            sendResult = sipCommander.register(sipPlatform, sipDevice, null, sipPlatform.getRegisterWWWAuthenticateHeader(), eventResult -> {
+                long time = System.currentTimeMillis();
+                sipDevice.setRegisterTime(time);
+                sipDevice.setKeepaliveTime(time);
+                sipDevice.setOnline(true);
+                result.setResult("注册成功!");
+            });
+        } else {
+            sendResult = sipCommander.register(sipPlatform, sipDevice, eventResult -> {
+                long time = System.currentTimeMillis();
+                sipDevice.setRegisterTime(time);
+                sipDevice.setKeepaliveTime(time);
+                sipDevice.setOnline(true);
+                result.setResult("注册成功!");
+            });
+        }
         if (!sendResult) {
             result.setResult("注册指令发送失败!");
         }
         return result;
     }
 
-    @PutMapping(path = "/unRegister")
+    @GetMapping(path = "/unRegister")
     public DeferredResult<String> unRegister() {
         DeferredResult<String> result = new DeferredResult<>(1000 * 5L);
         result.onTimeout(() -> {

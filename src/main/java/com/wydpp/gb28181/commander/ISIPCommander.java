@@ -26,6 +26,8 @@ public interface ISIPCommander {
 
     boolean deviceInfoResponse(SipPlatform sipPlatform, SipDevice sipDevice, String sn, String fromTag);
 
+    boolean deviceStatusResponse(SipPlatform sipPlatform, SipDevice sipDevice, String sn, String fromTag);
+
     /**
      * 设备音视频文件检索指令响应
      * @param sipPlatform

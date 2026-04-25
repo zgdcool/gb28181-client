@@ -1,5 +1,7 @@
 package com.wydpp.gb28181.bean;
 
+import javax.sip.header.WWWAuthenticateHeader;
+
 public class SipPlatform {
 
     /**
@@ -97,6 +99,11 @@ public class SipPlatform {
      * 在线状态
      */
     private int channelCount;
+
+    /**
+     * 最近一次注册鉴权挑战，用于后续主动携带 Authorization
+     */
+    private WWWAuthenticateHeader registerWWWAuthenticateHeader;
 
     public Integer getId() {
         return id;
@@ -248,6 +255,14 @@ public class SipPlatform {
 
     public void setChannelCount(int channelCount) {
         this.channelCount = channelCount;
+    }
+
+    public WWWAuthenticateHeader getRegisterWWWAuthenticateHeader() {
+        return registerWWWAuthenticateHeader;
+    }
+
+    public void setRegisterWWWAuthenticateHeader(WWWAuthenticateHeader registerWWWAuthenticateHeader) {
+        this.registerWWWAuthenticateHeader = registerWWWAuthenticateHeader;
     }
 
 }
