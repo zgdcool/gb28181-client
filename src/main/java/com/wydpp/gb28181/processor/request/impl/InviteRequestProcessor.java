@@ -18,8 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ResourceUtils;
 
 import javax.sdp.*;
 import javax.sip.InvalidArgumentException;
@@ -30,7 +30,11 @@ import javax.sip.header.CallIdHeader;
 import javax.sip.header.FromHeader;
 import javax.sip.message.Request;
 import javax.sip.message.Response;
-import java.io.FileNotFoundException;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.ParseException;
 import java.util.Date;
 import java.util.Vector;
@@ -77,11 +81,21 @@ public class InviteRequestProcessor extends SIPRequestProcessorParent implements
 
     static {
         try {
-            VIDEO_FILE = ResourceUtils.getFile("classpath:device/videofile.h264").getAbsolutePath();
-            RECORD_VIDEO_FILE = ResourceUtils.getFile("classpath:device/record.h264").getAbsolutePath();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
+            VIDEO_FILE = extractClasspathResource("device/videofile.h264", "videofile-", ".h264");
+            RECORD_VIDEO_FILE = extractClasspathResource("device/record.h264", "record-", ".h264");
+        } catch (IOException e) {
+            throw new ExceptionInInitializerError(e);
         }
+    }
+
+    private static String extractClasspathResource(String resourcePath, String prefix, String suffix) throws IOException {
+        ClassPathResource resource = new ClassPathResource(resourcePath);
+        File tempFile = File.createTempFile(prefix, suffix);
+        tempFile.deleteOnExit();
+        try (InputStream inputStream = resource.getInputStream()) {
+            Files.copy(inputStream, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+        return tempFile.getAbsolutePath();
     }
 
     /**
